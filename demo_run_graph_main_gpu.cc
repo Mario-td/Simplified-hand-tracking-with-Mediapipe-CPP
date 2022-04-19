@@ -24,8 +24,8 @@
 
 constexpr char kInputStream[] = "input_video";
 constexpr char kOutputStream[] = "output_video";
-constexpr char kWindowName[] = "MediaPipe";
 constexpr char kHandLandmarks[] = "hand_landmarks";
+constexpr char kWindowName[] = "MediaPipe";
 
 class HandlandmarksDetector 
 {
@@ -34,7 +34,6 @@ private:
 	mediapipe::CalculatorGraph graph;
 
 	std::unique_ptr<mediapipe::OutputStreamPoller> poller;
-	std::unique_ptr<mediapipe::OutputStreamPoller> poller_handlandmarks;
 	
 	mediapipe::GlCalculatorHelper gpu_helper;
 
@@ -56,25 +55,27 @@ public:
 
 		ASSIGN_OR_RETURN(mediapipe::OutputStreamPoller poller,
 		                 this->graph.AddOutputStreamPoller(kOutputStream));
-//		ASSIGN_OR_RETURN(mediapipe::OutputStreamPoller poller_handlandmarks,
-//		                 this->graph.AddOutputStreamPoller(kHandLandmarks));
-///
-//mediapipe::CalculatorGraph& graph = this->graph;
-MP_RETURN_IF_ERROR(
-    this->graph.ObserveOutputStream(kHandLandmarks,
+		MP_RETURN_IF_ERROR(
+    		this->graph.ObserveOutputStream(kHandLandmarks,
                               [](const mediapipe::Packet& packet) -> ::mediapipe::Status {
-    auto landmarks = packet.Get<std::vector<mediapipe::NormalizedLandmarkList>>();
-		        for (const ::mediapipe::NormalizedLandmarkList &normalizedlandmarkList : landmarks)
-		        {
-					std::cout << normalizedlandmarkList.DebugString();
-		        }
-    return mediapipe::OkStatus();
-  }));
-///
+    			auto landmarks = packet.Get<std::vector<mediapipe::NormalizedLandmarkList>>();
+		        	for (const ::mediapipe::NormalizedLandmarkList &normalizedlandmarkList : landmarks)
+		        	{
+						for (int i = 0; i < normalizedlandmarkList.landmark_size(); ++i)
+						{
+							std::cout << "\nLandmark " << i << ":" << std::endl;
+							std::cout << "\tx:" << normalizedlandmarkList.landmark(i).x() << std::endl; 
+							std::cout << "\ty:" << normalizedlandmarkList.landmark(i).y() << std::endl; 
+							std::cout << "\tz:" << normalizedlandmarkList.landmark(i).z() << std::endl; 
+						}
+						//std::cout << normalizedlandmarkList.DebugString();
+		        	}
+    			return mediapipe::OkStatus();
+  			}));
+
 		MP_RETURN_IF_ERROR(this->graph.StartRun({}));
 		
 		this->poller = std::make_unique<mediapipe::OutputStreamPoller>(std::move(poller));
-		//this->poller_handlandmarks = std::make_unique<mediapipe::OutputStreamPoller>(std::move(poller_handlandmarks));
 
   		return mediapipe::OkStatus();
 	}
@@ -92,56 +93,36 @@ MP_RETURN_IF_ERROR(
 		size_t frame_timestamp_us =
 		    (double)cv::getTickCount() / (double)cv::getTickFrequency() * 1e6;
 		
-		mediapipe::CalculatorGraph& graph = this->graph;
-  		
-		mediapipe::GlCalculatorHelper &gpu_helper = this->gpu_helper;
-	
-		gpu_helper.RunInGlContext([&input_frame, &frame_timestamp_us, &graph,
-		                           &gpu_helper]() -> absl::Status {
+		gpu_helper.RunInGlContext([&input_frame, &frame_timestamp_us, this]() -> absl::Status {
 		  // Convert ImageFrame to GpuBuffer.
-		  auto texture = gpu_helper.CreateSourceTexture(*input_frame.get());
+		  auto texture = this->gpu_helper.CreateSourceTexture(*input_frame.get());
 		  auto gpu_frame = texture.GetFrame<mediapipe::GpuBuffer>();
 		  glFlush();
 		  texture.Release();
 		  // Send GPU image packet into the graph.
-		  MP_RETURN_IF_ERROR(graph.AddPacketToInputStream(
+		  MP_RETURN_IF_ERROR(this->graph.AddPacketToInputStream(
 		      kInputStream, mediapipe::Adopt(gpu_frame.release())
 		                        .At(mediapipe::Timestamp(frame_timestamp_us))));
 		  return absl::OkStatus();
 		});
 		
-		// Get the graph result landmarks.
-	/*	mediapipe::Packet packet_handlandmarks;
-		if(this->poller_handlandmarks->QueueSize() > 0)
-		{
-		    if (this->poller_handlandmarks->Next(&packet_handlandmarks))
-		    {
-		        auto& output_handlandmarks = packet_handlandmarks.Get<std::vector<::mediapipe::NormalizedLandmarkList>>();
-		        for (const ::mediapipe::NormalizedLandmarkList &normalizedlandmarkList : output_handlandmarks)
-		        {
-		            std::cout << normalizedlandmarkList.DebugString();
-		        }
-		    }
-		
-		}
-	*/
 		// Get the graph result packet, or stop if that fails.
 		mediapipe::Packet packet;
 		this->poller->Next(&packet);
 		std::unique_ptr<mediapipe::ImageFrame> output_frame;
 			
 		// Convert GpuBuffer to ImageFrame.
-		gpu_helper.RunInGlContext(
-		  [&packet, &output_frame, &gpu_helper]() -> absl::Status {
+		this->gpu_helper.RunInGlContext(
+		  [&packet, &output_frame, this]() -> absl::Status {
 		    auto& gpu_frame = packet.Get<mediapipe::GpuBuffer>();
-		    auto texture = gpu_helper.CreateSourceTexture(gpu_frame);
+		    auto texture = this->gpu_helper.CreateSourceTexture(gpu_frame);
 		    output_frame = absl::make_unique<mediapipe::ImageFrame>(
 		        mediapipe::ImageFormatForGpuBufferFormat(gpu_frame.format()),
 		        gpu_frame.width(), gpu_frame.height(),
 		        mediapipe::ImageFrame::kGlDefaultAlignmentBoundary);
-		    gpu_helper.BindFramebuffer(texture);
+		    this->gpu_helper.BindFramebuffer(texture);
 		    const auto info = mediapipe::GlTextureInfoForGpuBufferFormat(
-		        gpu_frame.format(), 0, gpu_helper.GetGlVersion());
+		        gpu_frame.format(), 0, this->gpu_helper.GetGlVersion());
 		    glReadPixels(0, 0, texture.width(), texture.height(), info.gl_format,
 		                 info.gl_type, output_frame->MutablePixelData());
 		    glFlush();
@@ -174,7 +155,8 @@ int main(int argc, char** argv) {
 	
 	using namespace boost::interprocess;
 	if (argc == 1)
-	{ // Parent process
+	{ 	
+		// Parent process
 		cv::Mat frame = cv::imread("Untitled.png", cv::IMREAD_COLOR);
 		size_t sizeInBytes = frame.step[0] * frame.rows;
 
@@ -224,6 +206,7 @@ int main(int argc, char** argv) {
 		cv::imshow("Display window child output", output_frame_mat);
 		cv::waitKey(0); // Wait for a keystroke in the window
 	}
+
 	return 0;
 /*
 	HandlandmarksDetector handlandmarksDetector(argv[1]);
