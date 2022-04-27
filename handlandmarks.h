@@ -39,6 +39,8 @@ public:
 	HandlandmarksDetector(std::string calculator_graph_config_file);
 	~HandlandmarksDetector();
 
+	void resetCoordinates();
+
 	float coordinates[NUM_LANDMARKS * 2] = {0};
 	cv::Mat DetectLandmarks(cv::Mat image);
 };

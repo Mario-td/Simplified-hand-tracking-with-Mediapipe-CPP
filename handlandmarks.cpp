@@ -102,6 +102,11 @@ cv::Mat HandlandmarksDetector::DetectLandmarks(cv::Mat image)
 	return output_frame_mat;
 }
 
+void HandlandmarksDetector::resetCoordinates()
+{
+	memset(this->coordinates, 0, sizeof(float) * NUM_LANDMARKS * 2);
+}
+
 HandlandmarksDetector::HandlandmarksDetector(std::string calculator_graph_config_file)
 {
 	this->RunMPPGraph(calculator_graph_config_file);

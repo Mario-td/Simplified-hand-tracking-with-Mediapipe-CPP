@@ -93,7 +93,8 @@ int main(int argc, char** argv) {
 
 		// Write the landmark coordinates
 		memcpy(coordinates_buff, handlandmarksDetector.coordinates, landmark_coordinates_bytes);
-		
+		handlandmarksDetector.resetCoordinates();
+
 		cv::imshow("Child display window", output_image);
 		cv::waitKey(0);
 	}
