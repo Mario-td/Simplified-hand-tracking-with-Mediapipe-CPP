@@ -27,10 +27,10 @@ absl::Status HandlandmarksDetector::RunMPPGraph(std::string &calculator_graph_co
 				{
 					for (int i = 0; i < normalizedlandmarkList.landmark_size(); ++i)
 					{
-						this->coordinates[i] = normalizedlandmarkList.landmark(i).x();
-						this->coordinates[i + 1] = normalizedlandmarkList.landmark(i).y();
+						this->coordinates[i * 2] = normalizedlandmarkList.landmark(i).x();
+						this->coordinates[i * 2 + 1] = normalizedlandmarkList.landmark(i).y();
 					}
-					// std::cout << normalizedlandmarkList.DebugString();
+					//std::cout << normalizedlandmarkList.DebugString();
 				}
 				return mediapipe::OkStatus();
 			}));

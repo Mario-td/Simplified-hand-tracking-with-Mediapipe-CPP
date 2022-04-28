@@ -60,8 +60,8 @@ int main(int argc, char** argv) {
 		for (int i = 0; i < NUM_LANDMARKS; ++i)
 		{
 			std::cout << "\nLandmark " << i << ":" << std::endl;
-			std::cout << "\tx:" << coordinates_buff[i] << std::endl;
-			std::cout << "\ty:" << coordinates_buff[i + 1] << std::endl;
+			std::cout << "\tx:" << coordinates_buff[i * 2] << std::endl;
+			std::cout << "\ty:" << coordinates_buff[i * 2 + 1] << std::endl;
 		}
 		
 	}
