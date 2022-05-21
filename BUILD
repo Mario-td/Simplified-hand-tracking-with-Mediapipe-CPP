@@ -18,6 +18,36 @@ package(default_visibility = ["//mediapipe/examples:__subpackages__"])
 
 # Linux only
 cc_binary(
+    name = "hand_tracking_cpu",
+    deps = [ 
+        "main_cpu",
+        "//mediapipe/graphs/hand_tracking:desktop_tflite_calculators",
+		"@boost//:interprocess",
+    ],  
+)
+
+cc_library(
+    name = "main_cpu",
+    srcs = ["mainCPU.cpp"], 
+    deps = [ 
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
+        "//mediapipe/framework/port:file_helpers",
+        "//mediapipe/framework/port:opencv_highgui",
+        "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:opencv_video",
+        "//mediapipe/framework/port:parse_text_proto",
+        "//mediapipe/framework/port:status",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+        "//mediapipe/calculators/util:landmarks_to_render_data_calculator",
+        "//mediapipe/framework/formats:landmark_cc_proto",
+    ],  
+)
+
+
+cc_binary(
     name = "hand_tracking_gpu",
     deps = [
         "main_gpu",
