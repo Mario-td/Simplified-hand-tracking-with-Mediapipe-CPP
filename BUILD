@@ -28,8 +28,8 @@ cc_binary(
 
 cc_library(
     name = "main_cpu",
-    srcs = ["mainCPU.cpp"], 
-    hdrs = ["handlandmarks.h"],
+    srcs = ["main.cpp", "handlandmarksCPU.cpp"], 
+    hdrs = ["handlandmarks.h", "handlandmarksCPU.h"],
     deps = [ 
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",
@@ -63,8 +63,8 @@ cc_binary(
 # (or similar nvidia/amd equivalent)
 cc_library(
     name = "main_gpu",
-    srcs = ["main.cpp", "handlandmarks.cpp"],
-    hdrs = ["handlandmarks.h"],
+    srcs = ["main.cpp", "handlandmarksGPU.cpp"],
+    hdrs = ["handlandmarks.h", "handlandmarksGPU.h"],
     deps = [
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",

@@ -1,6 +1,6 @@
-#include "handlandmarks.h"
+#include "handlandmarksGPU.h"
 
-absl::Status HandlandmarksDetector::RunMPPGraph(std::string &calculator_graph_config_file)
+absl::Status HandlandmarksDetectorGPU::RunMPPGraph(std::string &calculator_graph_config_file)
 {
 	std::ifstream input_file(calculator_graph_config_file);
 	std::string calculator_graph_config_contents = std::string((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
@@ -16,24 +16,24 @@ absl::Status HandlandmarksDetector::RunMPPGraph(std::string &calculator_graph_co
 	this->gpu_helper.InitializeForTest(this->graph.GetGpuResources().get());
 
 	ASSIGN_OR_RETURN(mediapipe::OutputStreamPoller poller,
-		this->graph.AddOutputStreamPoller(kOutputStream));
+					 this->graph.AddOutputStreamPoller(kOutputStream));
 	// Print the coordinates of the landmarks asynchronously
 	MP_RETURN_IF_ERROR(
 		this->graph.ObserveOutputStream(kHandLandmarks,
-			[this](const mediapipe::Packet &packet) -> ::mediapipe::Status
-			{
-				auto landmarks = packet.Get<std::vector<mediapipe::NormalizedLandmarkList>>();
-				for (const ::mediapipe::NormalizedLandmarkList &normalizedlandmarkList : landmarks)
-				{
-					for (int i = 0; i < normalizedlandmarkList.landmark_size(); ++i)
-					{
-						this->coordinates[i * 2] = normalizedlandmarkList.landmark(i).x();
-						this->coordinates[i * 2 + 1] = normalizedlandmarkList.landmark(i).y();
-					}
-					//std::cout << normalizedlandmarkList.DebugString();
-				}
-				return mediapipe::OkStatus();
-			}));
+										[this](const mediapipe::Packet &packet) -> ::mediapipe::Status
+										{
+											auto landmarks = packet.Get<std::vector<mediapipe::NormalizedLandmarkList>>();
+											for (const ::mediapipe::NormalizedLandmarkList &normalizedlandmarkList : landmarks)
+											{
+												for (int i = 0; i < normalizedlandmarkList.landmark_size(); ++i)
+												{
+													this->coordinates[i * 2] = normalizedlandmarkList.landmark(i).x();
+													this->coordinates[i * 2 + 1] = normalizedlandmarkList.landmark(i).y();
+												}
+												// std::cout << normalizedlandmarkList.DebugString();
+											}
+											return mediapipe::OkStatus();
+										}));
 
 	MP_RETURN_IF_ERROR(this->graph.StartRun({}));
 
@@ -42,7 +42,7 @@ absl::Status HandlandmarksDetector::RunMPPGraph(std::string &calculator_graph_co
 	return mediapipe::OkStatus();
 }
 
-cv::Mat HandlandmarksDetector::DetectLandmarks(cv::Mat image)
+cv::Mat HandlandmarksDetectorGPU::DetectLandmarks(cv::Mat image)
 {
 	// Wrap Mat into an ImageFrame.
 	auto input_frame = absl::make_unique<mediapipe::ImageFrame>(
@@ -102,18 +102,9 @@ cv::Mat HandlandmarksDetector::DetectLandmarks(cv::Mat image)
 	return output_frame_mat;
 }
 
-void HandlandmarksDetector::resetCoordinates()
-{
-	memset(this->coordinates, 0, sizeof(float) * NUM_LANDMARKS * 2);
-}
 
-HandlandmarksDetector::HandlandmarksDetector(std::string calculator_graph_config_file)
+HandlandmarksDetectorGPU::HandlandmarksDetectorGPU(std::string calculator_graph_config_file)
 {
 	this->RunMPPGraph(calculator_graph_config_file);
 }
 
-HandlandmarksDetector::~HandlandmarksDetector()
-{
-	this->graph.CloseInputStream(kInputStream);
-	this->graph.WaitUntilDone();
-}
