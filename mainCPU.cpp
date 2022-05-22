@@ -1,54 +1,33 @@
-// Copyright 2019 The MediaPipe Authors. 
-// 
-// Licensed under the Apache License, Version 2.0 (the "License"); 
-// you may not use this file except in compliance with the License. 
-// You may obtain a copy of the License at 
-// 
-//      http://www.apache.org/licenses/LICENSE-2.0 
-// 
-// Unless required by applicable law or agreed to in writing, software 
-// distributed under the License is distributed on an "AS IS" BASIS, 
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-// See the License for the specific language governing permissions and 
-// limitations under the License. 
-// 
-// An example of sending OpenCV webcam frames into a MediaPipe graph. 
-#include <cstdlib> 
-#include <fstream> 
- 
-#include "absl/flags/flag.h" 
-#include "absl/flags/parse.h" 
-#include "mediapipe/framework/calculator_framework.h" 
-#include "mediapipe/framework/formats/image_frame.h" 
-#include "mediapipe/framework/formats/image_frame_opencv.h" 
-#include "mediapipe/framework/port/file_helpers.h" 
-#include "mediapipe/framework/port/opencv_highgui_inc.h" 
-#include "mediapipe/framework/port/opencv_imgproc_inc.h" 
-#include "mediapipe/framework/port/opencv_video_inc.h" 
-#include "mediapipe/framework/port/parse_text_proto.h" 
-#include "mediapipe/framework/port/status.h" 
+// Copyright 2019 The MediaPipe Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// An example of sending OpenCV webcam frames into a MediaPipe graph.
+#include "handlandmarks.h"
 
-#include "mediapipe/calculators/util/landmarks_to_render_data_calculator.pb.h"
-#include "mediapipe/framework/formats/landmark.pb.h"
+#include <cstdlib>
 
 #include "boost/interprocess/shared_memory_object.hpp"
 #include "boost/interprocess/mapped_region.hpp"
 
-constexpr char kInputStream[] = "input_video";
-constexpr char kOutputStream[] = "output_video";
 constexpr char kHandLandmarks[] = "landmarks";
 
-
-class HandlandmarksDetectorCPU
+class HandlandmarksDetectorCPU : public HandlandmarksDetector
 {
 
-private:
-    mediapipe::CalculatorGraph graph;
-
-    std::unique_ptr<mediapipe::OutputStreamPoller> poller;
-
 public:
-    absl::Status RunMPPGraph(std::string& calculator_graph_config_file) {
+    absl::Status RunMPPGraph(std::string &calculator_graph_config_file)
+    {
 
         std::ifstream input_file(calculator_graph_config_file);
         std::string calculator_graph_config_contents = std::string((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
@@ -58,27 +37,29 @@ public:
 
         MP_RETURN_IF_ERROR(this->graph.Initialize(config));
 
-        ASSIGN_OR_RETURN(mediapipe::OutputStreamPoller poller, 
+        ASSIGN_OR_RETURN(mediapipe::OutputStreamPoller poller,
                          this->graph.AddOutputStreamPoller(kOutputStream));
 
         MP_RETURN_IF_ERROR(
             this->graph.ObserveOutputStream(kHandLandmarks,
-                              [](const mediapipe::Packet& packet) -> ::mediapipe::Status {
-                auto landmarks = packet.Get<std::vector<mediapipe::NormalizedLandmarkList>>();
-                    for (const ::mediapipe::NormalizedLandmarkList &normalizedlandmarkList : landmarks)
-                    {
-                        for (int i = 0; i < normalizedlandmarkList.landmark_size(); ++i)
-                        {
-                            std::cout << "\nLandmark " << i << ":" << std::endl;
-                            std::cout << "\tx:" << normalizedlandmarkList.landmark(i).x() << std::endl; 
-                            std::cout << "\ty:" << normalizedlandmarkList.landmark(i).y() << std::endl; 
-                            std::cout << "\tz:" << normalizedlandmarkList.landmark(i).z() << std::endl; 
-                        }
-                        //std::cout << normalizedlandmarkList.DebugString();
-                    }
-                return mediapipe::OkStatus();
-            }));
-
+                                            [this](const mediapipe::Packet &packet) -> ::mediapipe::Status
+                                            {
+                                                auto landmarks = packet.Get<std::vector<mediapipe::NormalizedLandmarkList>>();
+                                                for (const ::mediapipe::NormalizedLandmarkList &normalizedlandmarkList : landmarks)
+                                                {
+                                                    for (int i = 0; i < normalizedlandmarkList.landmark_size(); ++i)
+                                                    {
+                                                        this->coordinates[i * 2] = normalizedlandmarkList.landmark(i).x();
+                                                        this->coordinates[i * 2 + 1] = normalizedlandmarkList.landmark(i).y();
+                                                        std::cout << "\nLandmark " << i << ":" << std::endl;
+                                                        std::cout << "\tx:" << normalizedlandmarkList.landmark(i).x() << std::endl;
+                                                        std::cout << "\ty:" << normalizedlandmarkList.landmark(i).y() << std::endl;
+                                                        std::cout << "\tz:" << normalizedlandmarkList.landmark(i).z() << std::endl;
+                                                    }
+                                                    // std::cout << normalizedlandmarkList.DebugString();
+                                                }
+                                                return mediapipe::OkStatus();
+                                            }));
 
         MP_RETURN_IF_ERROR(this->graph.StartRun({}));
 
@@ -86,7 +67,7 @@ public:
 
         return mediapipe::OkStatus();
     }
-    
+
     cv::Mat DetectLandmarks(cv::Mat camera_frame)
     {
         // Wrap Mat into an ImageFrame.
@@ -106,7 +87,7 @@ public:
         // Get the graph result packet, or stop if that fails.
         mediapipe::Packet packet;
         this->poller->Next(&packet);
-        auto& output_frame = packet.Get<mediapipe::ImageFrame>();
+        auto &output_frame = packet.Get<mediapipe::ImageFrame>();
 
         mediapipe::Packet packet_handlandmarks;
         // Convert back to opencv for display or saving.
@@ -120,36 +101,29 @@ public:
     {
         this->RunMPPGraph(calculator_graph_config_file);
     }
-
-    ~HandlandmarksDetectorCPU()
-    {
-        this->graph.CloseInputStream(kInputStream);
-        this->graph.WaitUntilDone();
-    }
 };
 
-#define NUM_LANDMARKS 21
+int main(int argc, char **argv)
+{
+    /*    HandlandmarksDetectorCPU handlandmarksDetector(argv[1]);
+        cv::Mat output_image = cv::imread("Untitled.png", cv::IMREAD_COLOR);
 
-int main(int argc, char** argv) {
-/*    HandlandmarksDetectorCPU handlandmarksDetector(argv[1]);
-    cv::Mat output_image = cv::imread("Untitled.png", cv::IMREAD_COLOR);
 
+        cv::cvtColor(output_image, output_image, cv::COLOR_BGR2RGBA);
+        output_image = handlandmarksDetector.DetectLandmarks(output_image);
 
-    cv::cvtColor(output_image, output_image, cv::COLOR_BGR2RGBA);
-    output_image = handlandmarksDetector.DetectLandmarks(output_image);
+        cv::imshow("Child display window", output_image);
+        cv::waitKey(0);
 
-    cv::imshow("Child display window", output_image);
-    cv::waitKey(0);
+        return EXIT_SUCCESS;
+    */
+    using namespace boost::interprocess;
 
-    return EXIT_SUCCESS;
-*/
-using namespace boost::interprocess;
-
-    size_t image_dimension_bytes = 2 * sizeof(int); // One int for the cols and another for the rows
+    size_t image_dimension_bytes = 2 * sizeof(int);                        // One int for the cols and another for the rows
     size_t landmark_coordinates_bytes = NUM_LANDMARKS * 2 * sizeof(float); // Size for all the landmarks x's and y's
 
     if (argc == 2)
-    {   
+    {
         // Parent process
         cv::Mat image = cv::imread("Untitled.png", cv::IMREAD_COLOR);
 
@@ -169,37 +143,36 @@ using namespace boost::interprocess;
 
         // Map the whole shared memory in this process
         mapped_region region(shm, read_write);
-    
-        void* region_address = region.get_address();
-        std::memset(region_address, 0, region.get_size());  
+
+        void *region_address = region.get_address();
+        std::memset(region_address, 0, region.get_size());
 
         // Write the image data
-        uchar* image_buff = static_cast<uchar*>(region_address + landmark_coordinates_bytes + image_dimension_bytes);
+        uchar *image_buff = static_cast<uchar *>(region_address + landmark_coordinates_bytes + image_dimension_bytes);
         memcpy(image_buff, image.data, image_size_bytes);
-    
-        // Write the image size 
-        int* dimension_buff = static_cast<int*>(region_address + landmark_coordinates_bytes);
+
+        // Write the image size
+        int *dimension_buff = static_cast<int *>(region_address + landmark_coordinates_bytes);
         dimension_buff[0] = image.cols;
         dimension_buff[1] = image.rows;
-    
+
         cv::imshow("Parent display window", image);
-        cv::waitKey(0); 
+        cv::waitKey(0);
 
         // Launch child process
-        std::string s(argv[0]+ std::string(" ") + argv[1]);
+        std::string s(argv[0] + std::string(" ") + argv[1]);
         s += " child";
         if (0 != std::system(s.c_str()))
             return 1;
 
         // Read the result data
-        float* coordinates_buff = static_cast<float*>(region_address);
+        float *coordinates_buff = static_cast<float *>(region_address);
         for (int i = 0; i < NUM_LANDMARKS; ++i)
         {
             std::cout << "\nLandmark " << i << ":" << std::endl;
             std::cout << "\tx:" << coordinates_buff[i * 2] << std::endl;
             std::cout << "\ty:" << coordinates_buff[i * 2 + 1] << std::endl;
         }
-
     }
     else
     {
@@ -211,12 +184,12 @@ using namespace boost::interprocess;
         // Map the whole shared memory in this process
         mapped_region region(shm, read_write);
 
-        void* region_address = region.get_address();
+        void *region_address = region.get_address();
 
         // Get the buffer locations
-        uchar* image_buff = static_cast<uchar*>(region_address + landmark_coordinates_bytes + image_dimension_bytes);
-        int* dimension_buff = static_cast<int*>(region_address + landmark_coordinates_bytes);
-        float* coordinates_buff = static_cast<float*>(region_address);
+        uchar *image_buff = static_cast<uchar *>(region_address + landmark_coordinates_bytes + image_dimension_bytes);
+        int *dimension_buff = static_cast<int *>(region_address + landmark_coordinates_bytes);
+        float *coordinates_buff = static_cast<float *>(region_address);
 
         cv::Mat image(cv::Size(dimension_buff[0], dimension_buff[1]), CV_8UC3, image_buff, cv::Mat::AUTO_STEP);
 
@@ -228,13 +201,12 @@ using namespace boost::interprocess;
         output_image = handlandmarksDetector.DetectLandmarks(output_image);
 
         // Write the landmark coordinates
-        //memcpy(coordinates_buff, handlandmarksDetector.coordinates, landmark_coordinates_bytes);
-        //handlandmarksDetector.resetCoordinates();
+        memcpy(coordinates_buff, handlandmarksDetector.coordinates, landmark_coordinates_bytes);
+        handlandmarksDetector.resetCoordinates();
 
         cv::imshow("Child display window", output_image);
         cv::waitKey(0);
     }
 
-    return 0;	
+    return 0;
 }
-

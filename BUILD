@@ -29,6 +29,7 @@ cc_binary(
 cc_library(
     name = "main_cpu",
     srcs = ["mainCPU.cpp"], 
+    hdrs = ["handlandmarks.h"],
     deps = [ 
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",

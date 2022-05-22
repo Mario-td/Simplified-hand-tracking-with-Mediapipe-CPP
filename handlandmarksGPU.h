@@ -11,6 +11,9 @@
 #include "mediapipe/framework/port/opencv_video_inc.h"
 #include "mediapipe/framework/port/parse_text_proto.h"
 #include "mediapipe/framework/port/status.h"
+#include "mediapipe/gpu/gl_calculator_helper.h"
+#include "mediapipe/gpu/gpu_buffer.h"
+#include "mediapipe/gpu/gpu_shared_data_internal.h"
 
 #include "mediapipe/calculators/util/landmarks_to_render_data_calculator.pb.h"
 #include "mediapipe/framework/formats/landmark.pb.h"
@@ -19,30 +22,25 @@
 
 constexpr char kInputStream[] = "input_video";
 constexpr char kOutputStream[] = "output_video";
+constexpr char kHandLandmarks[] = "hand_landmarks";
+constexpr char kWindowName[] = "MediaPipe";
 
 class HandlandmarksDetector
 {
 
-protected:
-    mediapipe::CalculatorGraph graph;
+private:
+	mediapipe::CalculatorGraph graph;
+	std::unique_ptr<mediapipe::OutputStreamPoller> poller;
+	mediapipe::GlCalculatorHelper gpu_helper;
 
-    std::unique_ptr<mediapipe::OutputStreamPoller> poller;
+	absl::Status RunMPPGraph(std::string &calculator_graph_config_file);
 
 public:
-    virtual absl::Status RunMPPGraph(std::string &calculator_graph_config_file) = 0;
+	HandlandmarksDetector(std::string calculator_graph_config_file);
+	~HandlandmarksDetector();
 
-    virtual cv::Mat DetectLandmarks(cv::Mat camera_frame) = 0;
+	void resetCoordinates();
 
-    virtual ~HandlandmarksDetector()
-    {
-        this->graph.CloseInputStream(kInputStream);
-        this->graph.WaitUntilDone();
-    }
-
-    void resetCoordinates()
-    {
-        memset(this->coordinates, 0, sizeof(float) * NUM_LANDMARKS * 2);
-    }
-
-    float coordinates[NUM_LANDMARKS * 2] = {0};
+	float coordinates[NUM_LANDMARKS * 2] = {0};
+	cv::Mat DetectLandmarks(cv::Mat image);
 };
